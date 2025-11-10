@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>無界雲盤 - 不限空間 · 安全存儲</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { max-width: 1400px; margin: 0 auto; padding: 20px; background: #f8f9fa; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .logo { font-size: 24px; font-weight: 700; color: #2563eb; }
+        .auth-btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; background: #2563eb; color: white; }
+        .auth-btn.outline { background: transparent; border: 1px solid #2563eb; color: #2563eb; margin-left: 10px; }
+        .upload-area { border: 2px dashed #2563eb; border-radius: 8px; padding: 60px 20px; text-align: center; margin: 30px 0; background: white; cursor: pointer; transition: all 0.3s; }
+        .upload-area:hover { border-color: #1d4ed8; background: #f0f7ff; }
+        .upload-area p { color: #6b7280; margin-bottom: 10px; }
+        .file-input { display: none; }
+        .file-list { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .file-list h3 { margin-bottom: 20px; color: #1f2937; }
+        .file-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+        .file-info { display: flex; align-items: center; gap: 15px; }
+        .file-icon { font-size: 24px; color: #2563eb; }
+        .file-meta { color: #6b7280; font-size: 14px; }
+        .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .download-btn { background: #e0e7ff; color: #2563eb; }
+        .delete-btn { background: #fee2e2; color: #dc2626; margin-left: 8px; }
+        .auth-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 100; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; width: 400px; }
+        .modal-content h3 { margin-bottom: 20px; color: #1f2937; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #374151; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 16px; }
+        .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 30px; }
+        .close-btn { background: #f3f4f6; color: #6b7280; }
+        .submit-btn { background: #2563eb; color: white; }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .logout-btn { background: #fef2f2; color: #dc2626; }
+    </style>
+</head>
+<body>
+    <!-- 頂部導航 -->
+    <div class="header">
+        <div class="logo">無界雲盤</div>
+        <div id="authSection">
+            <button class="auth-btn" onclick="openModal('login')">登錄</button>
+            <button class="auth-btn outline" onclick="openModal('register')">註冊</button>
+        </div>
+    </div>
+
+    <!-- 上傳區域 -->
+    <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+        <div class="file-icon">📁</div>
+        <p>點擊或拖動文件至此上傳（無限空間，支持超大文件）</p>
+        <input type="file" id="fileInput" class="file-input" multiple accept="*">
+    </div>
+
+    <!-- 文件列表 -->
+    <div class="file-list">
+        <h3>我的文件</h3>
+        <div id="fileListContainer"></div>
+    </div>
+
+    <!-- 登錄模態框 -->
+    <div class="auth-modal" id="loginModal">
+        <div class="modal-content">
+            <h3>用戶登錄</h3>
+            <div class="form-group">
+                <label for="loginEmail">郵箱</label>
+                <input type="email" id="loginEmail" placeholder="請輸入郵箱">
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">密碼</label>
+                <input type="password" id="loginPassword" placeholder="請輸入密碼">
+            </div>
+            <div class="form-actions">
+                <button class="btn close-btn" onclick="closeModal('login')">取消</button>
+                <button class="btn submit-btn" onclick="handleLogin()">登錄</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 註冊模態框 -->
+    <div class="auth-modal" id="registerModal">
+        <div class="modal-content">
+            <h3>用戶註冊</h3>
+            <div class="form-group">
+                <label for="registerEmail">郵箱</label>
+                <input type="email" id="registerEmail" placeholder="請輸入郵箱">
+            </div>
+            <div class="form-group">
+                <label for="registerPassword">密碼</label>
+                <input type="password" id="registerPassword" placeholder="請輸入至少6位密碼">
+            </div>
+            <div class="form-actions">
+                <button class="btn close-btn" onclick="closeModal('register')">取消</button>
+                <button class="btn submit-btn" onclick="handleRegister()">註冊</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化 Supabase（替換為你的項目信息）
+        const supabaseUrl = '你的 Supabase URL';
+        const supabaseKey = '你的 Supabase 匿名公鑰';
+        const supabase = window.createClient(supabaseUrl, supabaseKey);
+
+        // 全局狀態
+        let currentUser = null;
+
+        // 頁面加載時初始化
+        window.onload = async () => {
+            // 監聽用戶登錄狀態變化
+            supabase.auth.onAuthStateChange((_event, session) => {
+                currentUser = session?.user;
+                updateAuthUI();
+                if (currentUser) fetchFileList();
+            });
+
+            // 初始化拖動上傳
+            initDragUpload();
+
+            // 監聽文件選擇事件
+            document.getElementById('fileInput').addEventListener('change', uploadFiles);
+        };
+
+        // 更新登錄狀態UI
+        function updateAuthUI() {
+            const authSection = document.getElementById('authSection');
+            if (currentUser) {
+                authSection.innerHTML = `
+                    <div class="user-info">
+                        <span>${currentUser.email}</span>
+                        <button class="btn logout-btn" onclick="handleLogout()">退出登錄</button>
+                    </div>
+                `;
+            } else {
+                authSection.innerHTML = `
+                    <button class="auth-btn" onclick="openModal('login')">登錄</button>
+                    <button class="auth-btn outline" onclick="openModal('register')">註冊</button>
+                `;
+                document.getElementById('fileListContainer').innerHTML = '<p style="color:#6b7280;text-align:center;padding:20px;">請登錄後管理文件</p>';
+            }
+        }
+
+        // 打開登錄/註冊模態框
+        function openModal(type) {
+            document.getElementById(`${type}Modal`).style.display = 'flex';
+        }
+
+        // 關閉模態框
+        function closeModal(type) {
+            document.getElementById(`${type}Modal`).style.display = 'none';
+        }
+
+        // 用戶註冊
+        async function handleRegister() {
+            const email = document.getElementById('registerEmail').value.trim();
+            const password = document.getElementById('registerPassword').value.trim();
+
+            if (!email || !password || password.length < 6) {
+                alert('請輸入有效郵箱和至少6位密碼');
+                return;
+            }
+
+            const { data, error } = await supabase.auth.signUp({ email, password });
+            if (error) {
+                alert(`註冊失敗：${error.message}`);
+            } else {
+                alert('註冊成功！請檢查郵箱驗證（若開啟驗證）');
+                closeModal('register');
+            }
+        }
+
+        // 用戶登錄
+        async function handleLogin() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) {
+                alert(`登錄失敗：${error.message}`);
+            } else {
+                closeModal('login');
+            }
+        }
+
+        // 用戶退出登錄
+        async function handleLogout() {
+            const { error } = await supabase.auth.signOut();
+            if (!error) {
+                document.getElementById('fileListContainer').innerHTML = '';
+            }
+        }
+
+        // 初始化拖動上傳功能
+        function initDragUpload() {
+            const uploadArea = document.getElementById('uploadArea');
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#1d4ed8';
+                uploadArea.style.background = '#f0f7ff';
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.style.borderColor = '#2563eb';
+                uploadArea.style.background = 'white';
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#2563eb';
+                uploadArea.style.background = 'white';
+                
+                if (e.dataTransfer.files.length && currentUser) {
+                    document.getElementById('fileInput').files = e.dataTransfer.files;
+                    uploadFiles();
+                } else if (!currentUser) {
+                    alert('請先登錄再上傳文件');
+                }
+            });
+        }
+
+        // 上傳文件到 Supabase
+        async function uploadFiles() {
+            if (!currentUser) {
+                alert('請先登錄再上傳文件');
+                return;
+            }
+
+            const files = document.getElementById('fileInput').files;
+            if (!files.length) return;
+
+            for (const file of files) {
+                try {
+                    // 生成唯一文件名（用戶ID分目錄，避免文件覆蓋）
+                    const fileName = `${currentUser.id}/${Date.now()}-${file.name}`;
+                    
+                    // 上傳文件到 Storage
+                    const { data: uploadData, error: uploadError } = await supabase.storage
+                        .from('unlimited-storage')
+                        .upload(fileName, file, {
+                            cacheControl: '31536000', // 緩存1年
+                            upsert: false
+                        });
+
+                    if (uploadError) throw uploadError;
+
+                    // 保存文件元數據到數據庫
+                    await supabase.from('file_meta').insert([{
+                        user_id: currentUser.id,
+                        file_path: uploadData.path,
+                        original_name: file.name,
+                        file_size: file.size,
+                        file_type: file.type
+                    }]);
+
+                } catch (error) {
+                    alert(`上傳失敗（${file.name}）：${error.message}`);
+                }
+            }
+
+            // 刷新文件列表 + 清空文件選擇器
+            fetchFileList();
+            document.getElementById('fileInput').value = '';
+        }
+
+        // 獲取並渲染文件列表
+        async function fetchFileList() {
+            const { data: files, error } = await supabase
+                .from('file_meta')
+                .select('*')
+                .order('upload_time', { ascending: false });
+
+            if (error) {
+                console.error('獲取文件列表失敗：', error);
+                document.getElementById('fileListContainer').innerHTML = '<p style="color:#dc2626;text-align:center;padding:20px;">加載文件失敗，請重試</p>';
+                return;
+            }
+
+            if (files.length === 0) {
+                document.getElementById('fileListContainer').innerHTML = '<p style="color:#6b7280;text-align:center;padding:20px;">暂无文件，趕緊上傳你的第一個文件吧～</p>';
+                return;
+            }
+
+            // 渲染文件列表
+            document.getElementById('fileListContainer').innerHTML = files.map(file => `
+                <div class="file-item">
+                    <div class="file-info">
+                        <div class="file-icon">${getFileIcon(file.file_type)}</div>
+                        <div>
+                            <div>${file.original_name}</div>
+                            <div class="file-meta">
+                                大小：${formatFileSize(file.file_size)} · 上傳時間：${formatTime(file.upload_time)}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn download-btn" onclick="downloadFile('${file.file_path}', '${file.original_name}')">下載</button>
+                        <button class="btn delete-btn" onclick="deleteFile('${file.id}', '${file.file_path}')">刪除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 根據文件類型返回對應圖標
+        function getFileIcon(fileType) {
+            if (!fileType) return '📄';
+            if (fileType.startsWith('image/')) return '🖼️';
+            if (fileType.startsWith('video/')) return '🎬';
+            if (fileType.startsWith('audio/')) return '🎵';
+            if (fileType.includes('pdf')) return '📑';
+            if (fileType.includes('word') || fileType.includes('doc')) return '📝';
+            if (fileType.includes('excel') || fileType.includes('sheet')) return '📊';
+            if (fileType.includes('zip') || fileType.includes('rar')) return '📦';
+            return '📄';
+        }
+
+        // 格式化文件大小（B→KB→MB→GB）
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return `${bytes}B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)}KB`;
+            if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
+            return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)}GB`;
+        }
+
+        // 格式化時間（ISO格式轉當地時間）
+        function formatTime(isoTime) {
+            return new Date(isoTime).toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        // 下載文件
+        async function downloadFile(filePath, originalName) {
+            try {
+                const { data, error } = await supabase.storage
+.from('unlimited-storage')
+                    .download(filePath);
+
+                if (error) throw error;
+
+                // 創建下載鏈接
+                const url = URL.createObjectURL(data);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = originalName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                alert(`下載失敗：${error.message}`);
+            }
+        }
+
+        // 刪除文件
+        async function deleteFile(fileId, filePath) {
+            if (!confirm('確定要刪除此文件嗎？此操作不可恢復。')) return;
+
+            try {
+                // 從數據庫刪除文件記錄
+                const { error: dbError } = await supabase
+                    .from('file_meta')
+                    .delete()
+                    .eq('id', fileId);
+
+                if (dbError) throw dbError;
+
+                // 從存儲中刪除實際文件
+                const { error: storageError } = await supabase.storage
+                    .from('unlimited-storage')
+                    .remove([filePath]);
+
+                if (storageError) throw storageError;
+
+                // 刷新文件列表
+                fetchFileList();
+                alert('文件刪除成功');
+            } catch (error) {
+                alert(`刪除失敗：${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>
