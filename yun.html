@@ -2,62 +2,122 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>無界雲盤 - 不限空間 · 安全存儲</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { max-width: 1400px; margin: 0 auto; padding: 20px; background: #f8f9fa; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .logo { font-size: 24px; font-weight: 700; color: #2563eb; }
-        .auth-btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; background: #2563eb; color: white; }
-        .auth-btn.outline { background: transparent; border: 1px solid #2563eb; color: #2563eb; margin-left: 10px; }
-        .upload-area { border: 2px dashed #2563eb; border-radius: 8px; padding: 60px 20px; text-align: center; margin: 30px 0; background: white; cursor: pointer; transition: all 0.3s; }
-        .upload-area:hover { border-color: #1d4ed8; background: #f0f7ff; }
-        .upload-area p { color: #6b7280; margin-bottom: 10px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; }
+        body { max-width: 1400px; margin: 0 auto; padding: 20px; background: #f8f9fa; color: #333; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 15px; border-bottom: 1px solid #e0e0e0; }
+        .logo { font-size: 28px; font-weight: 700; color: #2563eb; display: flex; align-items: center; }
+        .logo-icon { margin-right: 10px; font-size: 32px; }
+        .auth-btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #2563eb; color: white; font-weight: 600; transition: all 0.3s; }
+        .auth-btn:hover { background: #1d4ed8; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(37, 99, 235, 0.2); }
+        .auth-btn.outline { background: transparent; border: 2px solid #2563eb; color: #2563eb; margin-left: 10px; }
+        .auth-btn.outline:hover { background: #2563eb; color: white; }
+        .upload-area { border: 2px dashed #2563eb; border-radius: 12px; padding: 60px 20px; text-align: center; margin: 30px 0; background: white; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .upload-area:hover { border-color: #1d4ed8; background: #f0f7ff; transform: translateY(-3px); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
+        .upload-area p { color: #6b7280; margin-bottom: 10px; font-size: 18px; }
+        .upload-area .subtext { font-size: 14px; color: #9ca3af; margin-top: 10px; }
         .file-input { display: none; }
-        .file-list { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .file-list h3 { margin-bottom: 20px; color: #1f2937; }
-        .file-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+        .file-list { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-top: 30px; }
+        .file-list h3 { margin-bottom: 20px; color: #1f2937; font-size: 22px; padding-bottom: 10px; border-bottom: 1px solid #f3f4f6; }
+        .file-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f3f4f6; transition: background 0.2s; }
+        .file-item:hover { background: #f9fafb; }
         .file-info { display: flex; align-items: center; gap: 15px; }
-        .file-icon { font-size: 24px; color: #2563eb; }
-        .file-meta { color: #6b7280; font-size: 14px; }
-        .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .file-icon { font-size: 32px; color: #2563eb; }
+        .file-details { flex-grow: 1; }
+        .file-name { font-weight: 600; margin-bottom: 5px; }
+        .file-meta { color: #6b7280; font-size: 14px; display: flex; gap: 15px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; }
         .download-btn { background: #e0e7ff; color: #2563eb; }
+        .download-btn:hover { background: #d1daff; }
         .delete-btn { background: #fee2e2; color: #dc2626; margin-left: 8px; }
+        .delete-btn:hover { background: #fecaca; }
         .auth-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 100; }
-        .modal-content { background: white; padding: 30px; border-radius: 8px; width: 400px; }
-        .modal-content h3 { margin-bottom: 20px; color: #1f2937; }
+        .modal-content { background: white; padding: 40px; border-radius: 12px; width: 450px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); }
+        .modal-content h3 { margin-bottom: 25px; color: #1f2937; font-size: 24px; text-align: center; }
         .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; margin-bottom: 8px; color: #374151; }
-        .form-group input { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 16px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #374151; font-weight: 600; }
+        .form-group input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 16px; transition: border 0.3s; }
+        .form-group input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
         .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 30px; }
         .close-btn { background: #f3f4f6; color: #6b7280; }
+        .close-btn:hover { background: #e5e7eb; }
         .submit-btn { background: #2563eb; color: white; }
+        .submit-btn:hover { background: #1d4ed8; }
         .user-info { display: flex; align-items: center; gap: 15px; }
-        .logout-btn { background: #fef2f2; color: #dc2626; }
+        .user-email { font-weight: 600; color: #1f2937; }
+        .logout-btn { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .logout-btn:hover { background: #fee2e2; }
+        .storage-info { background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; padding: 20px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2); }
+        .storage-info h2 { margin-bottom: 10px; font-size: 24px; }
+        .storage-bar { background: rgba(255,255,255,0.3); height: 10px; border-radius: 5px; margin: 15px 0; overflow: hidden; }
+        .storage-used { background: white; height: 100%; width: 35%; border-radius: 5px; }
+        .storage-stats { display: flex; justify-content: space-between; font-size: 14px; }
+        .empty-state { text-align: center; padding: 40px 20px; color: #6b7280; }
+        .empty-state-icon { font-size: 64px; margin-bottom: 20px; }
+        .notification { position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 8px; color: white; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; opacity: 0; transform: translateY(-20px); transition: all 0.3s; }
+        .notification.show { opacity: 1; transform: translateY(0); }
+        .notification.success { background: #10b981; }
+        .notification.error { background: #ef4444; }
+        .notification.info { background: #3b82f6; }
+        .upload-progress { width: 100%; height: 6px; background: #e5e7eb; border-radius: 3px; margin-top: 10px; overflow: hidden; display: none; }
+        .upload-progress-bar { height: 100%; background: #10b981; width: 0%; transition: width 0.3s; }
+        
+        @media (max-width: 768px) {
+            .file-item { flex-direction: column; align-items: flex-start; gap: 15px; }
+            .file-info { width: 100%; }
+            .modal-content { width: 90%; padding: 30px 20px; }
+        }
     </style>
 </head>
 <body>
     <!-- 頂部導航 -->
     <div class="header">
-        <div class="logo">無界雲盤</div>
+        <div class="logo">
+            <span class="logo-icon">☁️</span>
+            無界雲盤
+        </div>
         <div id="authSection">
             <button class="auth-btn" onclick="openModal('login')">登錄</button>
             <button class="auth-btn outline" onclick="openModal('register')">註冊</button>
         </div>
     </div>
 
+    <!-- 存儲信息 -->
+    <div class="storage-info">
+        <h2>無限雲端存儲空間</h2>
+        <p>安全、可靠、無限制的文件存儲解決方案</p>
+        <div class="storage-bar">
+            <div class="storage-used"></div>
+        </div>
+        <div class="storage-stats">
+            <span>已使用: <span id="usedStorage">0 B</span></span>
+            <span>剩餘: 無限</span>
+        </div>
+    </div>
+
     <!-- 上傳區域 -->
     <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
         <div class="file-icon">📁</div>
-        <p>點擊或拖動文件至此上傳（無限空間，支持超大文件）</p>
+        <p>點擊或拖動文件至此上傳</p>
+        <p class="subtext">無限空間，支持超大文件，安全加密存儲</p>
         <input type="file" id="fileInput" class="file-input" multiple accept="*">
+        <div class="upload-progress" id="uploadProgress">
+            <div class="upload-progress-bar" id="uploadProgressBar"></div>
+        </div>
     </div>
 
     <!-- 文件列表 -->
     <div class="file-list">
         <h3>我的文件</h3>
-        <div id="fileListContainer"></div>
+        <div id="fileListContainer">
+            <div class="empty-state">
+                <div class="empty-state-icon">📁</div>
+                <p>暫無文件，請先登錄或上傳文件</p>
+            </div>
+        </div>
     </div>
 
     <!-- 登錄模態框 -->
@@ -98,22 +158,41 @@
         </div>
     </div>
 
+    <!-- 通知 -->
+    <div id="notification" class="notification"></div>
+
     <script>
-        // 初始化 Supabase（替換為你的項目信息）
-        const supabaseUrl = '你的 Supabase URL';
-        const supabaseKey = '你的 Supabase 匿名公鑰';
+        // 初始化 Supabase - 請替換為您的實際項目信息
+        const supabaseUrl = 'https://your-project.supabase.co';
+        const supabaseKey = 'your-anon-key';
         const supabase = window.createClient(supabaseUrl, supabaseKey);
 
         // 全局狀態
         let currentUser = null;
+        let userFiles = [];
 
         // 頁面加載時初始化
         window.onload = async () => {
+            // 檢查用戶登錄狀態
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                currentUser = session.user;
+                updateAuthUI();
+                await fetchFileList();
+                await updateStorageUsage();
+            }
+
             // 監聽用戶登錄狀態變化
-            supabase.auth.onAuthStateChange((_event, session) => {
+            supabase.auth.onAuthStateChange(async (event, session) => {
                 currentUser = session?.user;
                 updateAuthUI();
-                if (currentUser) fetchFileList();
+                if (currentUser) {
+                    await fetchFileList();
+                    await updateStorageUsage();
+                } else {
+                    userFiles = [];
+                    renderFileList();
+                }
             });
 
             // 初始化拖動上傳
@@ -123,13 +202,25 @@
             document.getElementById('fileInput').addEventListener('change', uploadFiles);
         };
 
+        // 顯示通知
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
         // 更新登錄狀態UI
         function updateAuthUI() {
             const authSection = document.getElementById('authSection');
             if (currentUser) {
                 authSection.innerHTML = `
                     <div class="user-info">
-                        <span>${currentUser.email}</span>
+                        <span class="user-email">${currentUser.email}</span>
                         <button class="btn logout-btn" onclick="handleLogout()">退出登錄</button>
                     </div>
                 `;
@@ -138,7 +229,6 @@
                     <button class="auth-btn" onclick="openModal('login')">登錄</button>
                     <button class="auth-btn outline" onclick="openModal('register')">註冊</button>
                 `;
-                document.getElementById('fileListContainer').innerHTML = '<p style="color:#6b7280;text-align:center;padding:20px;">請登錄後管理文件</p>';
             }
         }
 
@@ -158,16 +248,26 @@
             const password = document.getElementById('registerPassword').value.trim();
 
             if (!email || !password || password.length < 6) {
-                alert('請輸入有效郵箱和至少6位密碼');
+                showNotification('請輸入有效郵箱和至少6位密碼', 'error');
                 return;
             }
 
-            const { data, error } = await supabase.auth.signUp({ email, password });
+            const { data, error } = await supabase.auth.signUp({ 
+                email, 
+                password,
+                options: {
+                    emailRedirectTo: window.location.origin
+                }
+            });
+            
             if (error) {
-                alert(`註冊失敗：${error.message}`);
+                showNotification(`註冊失敗：${error.message}`, 'error');
             } else {
-                alert('註冊成功！請檢查郵箱驗證（若開啟驗證）');
+                showNotification('註冊成功！請檢查郵箱驗證（若開啟驗證）', 'success');
                 closeModal('register');
+                // 清空表單
+                document.getElementById('registerEmail').value = '';
+                document.getElementById('registerPassword').value = '';
             }
         }
 
@@ -176,10 +276,16 @@
             const email = document.getElementById('loginEmail').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
 
+            if (!email || !password) {
+                showNotification('請輸入郵箱和密碼', 'error');
+                return;
+            }
+
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) {
-                alert(`登錄失敗：${error.message}`);
+                showNotification(`登錄失敗：${error.message}`, 'error');
             } else {
+                showNotification('登錄成功！', 'success');
                 closeModal('login');
             }
         }
@@ -188,7 +294,7 @@
         async function handleLogout() {
             const { error } = await supabase.auth.signOut();
             if (!error) {
-                document.getElementById('fileListContainer').innerHTML = '';
+                showNotification('已成功退出登錄', 'info');
             }
         }
 
@@ -215,7 +321,7 @@
                     document.getElementById('fileInput').files = e.dataTransfer.files;
                     uploadFiles();
                 } else if (!currentUser) {
-                    alert('請先登錄再上傳文件');
+                    showNotification('請先登錄再上傳文件', 'error');
                 }
             });
         }
@@ -223,12 +329,18 @@
         // 上傳文件到 Supabase
         async function uploadFiles() {
             if (!currentUser) {
-                alert('請先登錄再上傳文件');
+                showNotification('請先登錄再上傳文件', 'error');
                 return;
             }
 
             const files = document.getElementById('fileInput').files;
             if (!files.length) return;
+
+            // 顯示上傳進度條
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressContainer = document.getElementById('uploadProgress');
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
 
             for (const file of files) {
                 try {
@@ -237,60 +349,121 @@
                     
                     // 上傳文件到 Storage
                     const { data: uploadData, error: uploadError } = await supabase.storage
-                        .from('unlimited-storage')
+                        .from('files')
                         .upload(fileName, file, {
                             cacheControl: '31536000', // 緩存1年
-                            upsert: false
+                            upsert: false,
+                            onUploadProgress: (progress) => {
+                                const percent = (progress.loaded / progress.total) * 100;
+                                progressBar.style.width = `${percent}%`;
+                            }
                         });
 
                     if (uploadError) throw uploadError;
 
                     // 保存文件元數據到數據庫
-                    await supabase.from('file_meta').insert([{
-                        user_id: currentUser.id,
-                        file_path: uploadData.path,
-                        original_name: file.name,
-                        file_size: file.size,
-                        file_type: file.type
-                    }]);
+                    const { error: dbError } = await supabase
+                        .from('file_metadata')
+                        .insert([{
+                            user_id: currentUser.id,
+                            file_path: uploadData.path,
+                            original_name: file.name,
+                            file_size: file.size,
+                            file_type: file.type
+                        }]);
+
+                    if (dbError) throw dbError;
+
+                    showNotification(`成功上傳: ${file.name}`, 'success');
 
                 } catch (error) {
-                    alert(`上傳失敗（${file.name}）：${error.message}`);
+                    console.error('上傳錯誤:', error);
+                    showNotification(`上傳失敗（${file.name}）：${error.message}`, 'error');
                 }
             }
 
-            // 刷新文件列表 + 清空文件選擇器
-            fetchFileList();
+            // 刷新文件列表 + 清空文件選擇器 + 隱藏進度條
+            await fetchFileList();
+            await updateStorageUsage();
             document.getElementById('fileInput').value = '';
+            progressContainer.style.display = 'none';
         }
 
-        // 獲取並渲染文件列表
+        // 從 Supabase 獲取文件列表
         async function fetchFileList() {
+            if (!currentUser) return;
+
             const { data: files, error } = await supabase
-                .from('file_meta')
+                .from('file_metadata')
                 .select('*')
-                .order('upload_time', { ascending: false });
+                .eq('user_id', currentUser.id)
+                .order('created_at', { ascending: false });
 
             if (error) {
                 console.error('獲取文件列表失敗：', error);
-                document.getElementById('fileListContainer').innerHTML = '<p style="color:#dc2626;text-align:center;padding:20px;">加載文件失敗，請重試</p>';
+                showNotification('加載文件失敗，請重試', 'error');
                 return;
             }
 
-            if (files.length === 0) {
-                document.getElementById('fileListContainer').innerHTML = '<p style="color:#6b7280;text-align:center;padding:20px;">暂无文件，趕緊上傳你的第一個文件吧～</p>';
+            userFiles = files || [];
+            renderFileList();
+        }
+
+        // 計算並更新存儲使用情況
+        async function updateStorageUsage() {
+            if (!currentUser) return;
+
+            const { data: files, error } = await supabase
+                .from('file_metadata')
+                .select('file_size')
+                .eq('user_id', currentUser.id);
+
+            if (error) {
+                console.error('獲取存儲使用情況失敗：', error);
                 return;
             }
 
-            // 渲染文件列表
-            document.getElementById('fileListContainer').innerHTML = files.map(file => `
+            const totalSize = files.reduce((sum, file) => sum + file.file_size, 0);
+            document.getElementById('usedStorage').textContent = formatFileSize(totalSize);
+            
+            // 更新進度條寬度（視覺效果，非實際限制）
+            const progressPercentage = Math.min((totalSize / (10 * 1024 * 1024 * 1024)) * 100, 100); // 假設10GB為視覺參考
+            document.querySelector('.storage-used').style.width = `${progressPercentage}%`;
+        }
+
+        // 渲染文件列表
+        function renderFileList() {
+            const container = document.getElementById('fileListContainer');
+            
+            if (!currentUser) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔒</div>
+                        <p>請登錄後查看和管理文件</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            if (userFiles.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📁</div>
+                        <p>暫無文件，趕緊上傳你的第一個文件吧～</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = userFiles.map(file => `
                 <div class="file-item">
                     <div class="file-info">
                         <div class="file-icon">${getFileIcon(file.file_type)}</div>
-                        <div>
-                            <div>${file.original_name}</div>
+                        <div class="file-details">
+                            <div class="file-name">${file.original_name}</div>
                             <div class="file-meta">
-                                大小：${formatFileSize(file.file_size)} · 上傳時間：${formatTime(file.upload_time)}
+                                <span>大小：${formatFileSize(file.file_size)}</span>
+                                <span>上傳時間：${formatTime(file.created_at)}</span>
                             </div>
                         </div>
                     </div>
@@ -330,16 +503,17 @@
                 month: '2-digit',
                 day: '2-digit',
                 hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
+                minute: '2-digit'
             });
         }
 
         // 下載文件
         async function downloadFile(filePath, originalName) {
             try {
+                showNotification(`開始下載: ${originalName}`, 'info');
+                
                 const { data, error } = await supabase.storage
-.from('unlimited-storage')
+                    .from('files')
                     .download(filePath);
 
                 if (error) throw error;
@@ -353,8 +527,11 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+                
+                showNotification(`下載完成: ${originalName}`, 'success');
             } catch (error) {
-                alert(`下載失敗：${error.message}`);
+                console.error('下載錯誤:', error);
+                showNotification(`下載失敗：${error.message}`, 'error');
             }
         }
 
@@ -365,7 +542,7 @@
             try {
                 // 從數據庫刪除文件記錄
                 const { error: dbError } = await supabase
-                    .from('file_meta')
+                    .from('file_metadata')
                     .delete()
                     .eq('id', fileId);
 
@@ -373,16 +550,18 @@
 
                 // 從存儲中刪除實際文件
                 const { error: storageError } = await supabase.storage
-                    .from('unlimited-storage')
+                    .from('files')
                     .remove([filePath]);
 
                 if (storageError) throw storageError;
 
-                // 刷新文件列表
-                fetchFileList();
-                alert('文件刪除成功');
+                // 刷新文件列表和存儲使用情況
+                await fetchFileList();
+                await updateStorageUsage();
+                showNotification('文件刪除成功', 'success');
             } catch (error) {
-                alert(`刪除失敗：${error.message}`);
+                console.error('刪除錯誤:', error);
+                showNotification(`刪除失敗：${error.message}`, 'error');
             }
         }
     </script>
